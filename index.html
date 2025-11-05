@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Internship Engine</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9; /* slate-100 for overall background */
+        }
+        /* Hide scrollbar */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Notification Modal Styling */
+        #notification-modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            top: 1rem; /* Adjust as needed */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out, top 0.3s ease-in-out;
+            max-width: 90%;
+            width: 400px; /* Or a fixed width */
+            pointer-events: none; /* Allow clicks through */
+        }
+        #notification-modal.show {
+            display: block;
+            top: 2rem; /* Slide down effect */
+            opacity: 1;
+            pointer-events: auto; /* Enable clicks when visible */
+        }
+
+
+        /* Dark Theme Card Styling */
+        .card-dark {
+            background-color: #1e293b; /* slate-800 */
+            color: #e2e8f0; /* slate-200 */
+            border: 1px solid #334155; /* slate-700 */
+            border-radius: 0.75rem; /* rounded-xl */
+            padding: 1.5rem; /* p-6 */
+            margin-bottom: 1rem; /* mb-4 */
+            transition: box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out;
+        }
+        .card-dark:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            border-color: #475569; /* slate-600 */
+        }
+        .card-dark h3 { color: #67e8f9; /* cyan-300 */ font-weight: 600; margin-bottom: 0.5rem; }
+        .card-dark h4 { color: #cbd5e1; /* slate-300 */ font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; font-size: 1rem; }
+        .card-dark p { color: #94a3b8; /* slate-400 */ margin-bottom: 0.5rem; font-size: 0.875rem; }
+        .card-dark .text-muted { color: #64748b; /* slate-500 */ font-size: 0.75rem;}
+        .card-dark button, .card-dark .action-button {
+            background-color: #0ea5e9; /* sky-500 */
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem; /* rounded-md */
+            font-weight: 500;
+            font-size: 0.875rem;
+            cursor: pointer;
+            border: none;
+            transition: background-color 0.2s ease;
+            margin-right: 0.5rem; /* Add spacing between buttons */
+            margin-top: 0.25rem;
+        }
+         /* Disabled button style */
+        .card-dark button:disabled {
+             background-color: #64748b; /* slate-500 */
+             cursor: not-allowed;
+             opacity: 0.7;
+        }
+        .card-dark button:hover:not(:disabled),
+        .card-dark .action-button:hover:not(:disabled) { background-color: #0284c7; /* sky-600 */ }
+        .card-dark .btn-accept { background-color: #22c55e; /* green-500 */ }
+        .card-dark .btn-accept:hover:not(:disabled) { background-color: #16a34a; /* green-600 */ }
+        .card-dark .btn-deny { background-color: #ef4444; /* red-500 */ }
+        .card-dark .btn-deny:hover:not(:disabled) { background-color: #dc2626; /* red-600 */ }
+        .card-dark .btn-shortlist { background-color: #3b82f6; /* blue-500 */ }
+        .card-dark .btn-shortlist:hover:not(:disabled) { background-color: #2563eb; /* blue-600 */ }
+
+
+        .applicant-card {
+            background-color: #334155; /* slate-700 */
+            border-radius: 0.5rem; /* rounded-lg */
+            margin-top: 0.75rem; /* mt-3 */
+            padding: 0.75rem; /* p-3 */
+            border-left: 4px solid #64748b; /* Default border */
+        }
+        .applicant-card p { margin-bottom: 0.25rem; font-size: 0.875rem;}
+        .applicant-card a { color: #67e8f9; /* cyan-300 */ text-decoration: none; }
+        .applicant-card a:hover { text-decoration: underline; }
+        .applicant-card .applicant-name { font-weight: 600; color: #e2e8f0; /* slate-200 */ }
+        .applicant-card .applicant-email { color: #94a3b8; /* slate-400 */ font-size: 0.75rem; }
+        .applicant-card .applicant-status { font-weight: 600; }
+        .applicant-card .applicant-score { font-size: 0.8rem; color: #cbd5e1; /* slate-300 */ }
+        .applicant-card .applicant-justification { font-size: 0.75rem; color: #94a3b8; font-style: italic; margin-top: 0.25rem; }
+
+
+        /* Status colors for applicant cards */
+        .status-pending { border-left-color: #f59e0b; } /* amber-500 */
+        .status-shortlisted { border-left-color: #3b82f6; } /* blue-500 */
+        .status-accepted { border-left-color: #22c55e; } /* green-500 */
+        .status-denied { border-left-color: #ef4444; } /* red-500 */
+        .status-scanned { border-left-color: #6366f1; } /* indigo-500 */
+
+        /* General dashboard styling */
+        main { background-color: #f1f5f9; /* slate-100 */ }
+        .dashboard-container { max-width: 80rem; margin-left: auto; margin-right: auto; padding: 1.5rem; }
+    </style>
+</head>
+<body class="h-full">
+    <!-- Notification Modal (Replaces all alert() popups) -->
+    <div id="notification-modal" class="fixed top-4 left-1/2 -translate-x-1/2 w-full max-w-md p-4 rounded-md shadow-lg text-white text-center">
+        <p id="notification-message">This is a notification</p>
+    </div>
+
+
+    <!-- Main Application Container -->
+    <div id="app" class="min-h-full">
+
+        <!-- PAGE 1: LOGIN SCREEN (Default) -->
+        <div id="login-page" class="flex min-h-full flex-col justify-center py-16 sm:px-6 lg:px-8 bg-slate-100">
+             <!-- ... (Login page structure remains the same) ... -->
+             <div class="sm:mx-auto sm:w-full sm:max-w-4xl text-center mb-12">
+                 <svg class="mx-auto h-12 w-auto text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
+                 </svg>
+                 <h2 class="mt-6 text-3xl font-bold tracking-tight text-gray-900">AI Internship Allocation Engine</h2>
+                 <p class="mt-2 text-lg text-gray-600"> Welcome! Please select your portal to sign in. </p>
+             </div>
+             <div class="sm:mx-auto sm:w-full sm:max-w-7xl">
+                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                     <!-- Portal 1: Student -->
+                     <div class="bg-white px-4 py-8 shadow-lg sm:rounded-2xl sm:px-10 flex flex-col">
+                         <div class="mb-6 text-center">
+                             <svg class="mx-auto h-12 w-12 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" /></svg>
+                             <h3 class="mt-4 text-xl font-semibold text-gray-900">Student Portal</h3>
+                             <p class="mt-1 text-sm text-gray-600">Find opportunities and track applications.</p>
+                         </div>
+                         <!-- No message box needed here, notification modal is used -->
+                         <form id="student-login-form" class="space-y-6">
+                             <div><label for="student-email" class="block text-sm font-medium leading-6 text-gray-900">Student Email</label><div class="mt-2"><input id="student-email" name="email" type="email" autocomplete="email" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"></div></div>
+                             <div><label for="student-password" class="block text-sm font-medium leading-6 text-gray-900">Password</label><div class="mt-2"><input id="student-password" name="password" type="password" autocomplete="current-password" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"></div></div>
+                             <div class="pt-2"><button type="submit" class="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"> Login as Student </button></div>
+                         </form>
+                         <div class="mt-4 text-center text-sm"><p class="text-gray-600">Don't have an account? <button onclick="showPage('student-register-page', 'Student Register')" class="font-medium text-indigo-600 hover:text-indigo-500"> Register here </button></p></div>
+                     </div>
+                     <!-- Portal 2: Recruiter -->
+                     <div class="bg-white px-4 py-8 shadow-lg sm:rounded-2xl sm:px-10 flex flex-col">
+                         <div class="mb-6 text-center">
+                             <svg class="mx-auto h-12 w-12 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A9.06 9.06 0 0 1 6 18.719m12 0c.212.01.423.015.633.015s.42-.005.633-.015m-12 0c.212.01.423.015.633.015s.42-.005.633-.015m0 0c-2.17 0-4.207-.576-5.963-1.584A9.06 9.06 0 0 1 6 18.719m0 0c.212.01.423.015.633.015s.42-.005.633-.015m6 0c.212.01.423.015.633.015s.42-.005.633-.015m-12 0c.212.01.423.015.633.015s.42-.005.633-.015M6 12a6 6 0 1 1 12 0 6 6 0 0 1-12 0Zm12 0a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z" /></svg>
+                             <h3 class="mt-4 text-xl font-semibold text-gray-900">Recruiter Portal</h3>
+                             <p class="mt-1 text-sm text-gray-600">Post jobs and find top talent.</p>
+                         </div>
+                         <!-- No message box needed -->
+                         <form id="recruiter-login-form" class="space-y-6">
+                            <div><label for="recruiter-email" class="block text-sm font-medium leading-6 text-gray-900">Recruiter Email</label><div class="mt-2"><input id="recruiter-email" name="email" type="email" autocomplete="email" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-green-600 sm:text-sm sm:leading-6"></div></div>
+                            <div><label for="recruiter-password" class="block text-sm font-medium leading-6 text-gray-900">Password</label><div class="mt-2"><input id="recruiter-password" name="password" type="password" autocomplete="current-password" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-green-600 sm:text-sm sm:leading-6"></div></div>
+                            <div class="pt-2"><button type="submit" class="flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"> Login as Recruiter </button></div>
+                         </form>
+                         <div class="mt-4 text-center text-sm"><p class="text-gray-600">Don't have an account? <button onclick="showPage('recruiter-register-page', 'Recruiter Register')" class="font-medium text-green-600 hover:text-green-500"> Register here </button></p></div>
+                     </div>
+                     <!-- Portal 3: Admin -->
+                     <div class="bg-white px-4 py-8 shadow-lg sm:rounded-2xl sm:px-10 flex flex-col">
+                         <div class="mb-6 text-center">
+                             <svg class="mx-auto h-12 w-12 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0M3.75 18H7.5m3-6h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0M3.75 12H7.5m-3.75 0h.008v.015M3.75 18h.008v.015m0-6h.008v.015m1.492 5.985a1.5 1.5 0 0 1 2.25 0m-2.25 0a1.5 1.5 0 0 0 2.25 0M15 12a1.5 1.5 0 0 1 2.25 0m-2.25 0a1.5 1.5 0 0 0 2.25 0m-6.75 0a1.5 1.5 0 0 1 2.25 0m-2.25 0a1.5 1.5 0 0 0 2.25 0m-6.75 0a1.5 1.5 0 0 1 2.25 0m-2.25 0a1.5 1.5 0 0 0 2.25 0m-6.75 6a1.5 1.5 0 0 1 2.25 0m-2.25 0a1.5 1.5 0 0 0 2.25 0m6.75 0a1.5 1.5 0 0 1 2.25 0m-2.25 0a1.5 1.5 0 0 0 2.25 0m6.75 0a1.5 1.5 0 0 1 2.25 0m-2.25 0a1.5 1.5 0 0 0 2.25 0m-6.75-6a1.5 1.5 0 0 1 2.25 0m-2.25 0a1.5 1.5 0 0 0 2.25 0" /></svg>
+                             <h3 class="mt-4 text-xl font-semibold text-gray-900">Admin Portal</h3>
+                             <p class="mt-1 text-sm text-gray-600">Manage users, recruiters, and listings.</p>
+                         </div>
+                          <!-- No message box needed -->
+                         <form id="admin-login-form" class="space-y-6">
+                             <div><label for="admin-email" class="block text-sm font-medium leading-6 text-gray-900">Admin Email</label><div class="mt-2"><input id="admin-email" name="email" type="email" autocomplete="email" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-gray-600 sm:text-sm sm:leading-6"></div></div>
+                             <div><label for="admin-password" class="block text-sm font-medium leading-6 text-gray-900">Password</label><div class="mt-2"><input id="admin-password" name="password" type="password" autocomplete="current-password" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-gray-600 sm:text-sm sm:leading-6"></div></div>
+                             <div class="pt-2"><button type="submit" class="flex w-full justify-center rounded-md bg-gray-800 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-800"> Login as Admin </button></div>
+                         </form>
+                     </div>
+                 </div>
+             </div>
+        </div>
+
+        <!-- PAGE 2: STUDENT REGISTER PAGE (Hidden) -->
+        <div id="student-register-page" class="hidden flex min-h-full flex-col justify-center py-12 sm:px-6 lg:px-8 bg-slate-100">
+            <!-- ... (Structure remains the same) ... -->
+             <div class="sm:mx-auto sm:w-full sm:max-w-md">
+                 <svg class="mx-auto h-12 w-auto text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" /></svg>
+                 <h2 class="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">Create Student Account</h2>
+             </div>
+             <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+                 <div class="bg-white px-4 py-8 shadow-lg sm:rounded-2xl sm:px-10">
+                     <!-- No separate message box needed -->
+                     <form id="student-register-form" class="space-y-6">
+                         <div><label for="student-reg-name" class="block text-sm font-medium leading-6 text-gray-900">Full Name</label><div class="mt-2"><input id="student-reg-name" name="name" type="text" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"></div></div>
+                         <div><label for="student-reg-email" class="block text-sm font-medium leading-6 text-gray-900">Email address</label><div class="mt-2"><input id="student-reg-email" name="email" type="email" autocomplete="email" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"></div></div>
+                         <div><label for="student-reg-password" class="block text-sm font-medium leading-6 text-gray-900">Password</label><div class="mt-2"><input id="student-reg-password" name="password" type="password" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" minlength="6"><p class="mt-1 text-xs text-gray-500">Must be at least 6 characters.</p></div></div>
+                         <div><label for="student-reg-confirm-password" class="block text-sm font-medium leading-6 text-gray-900">Confirm Password</label><div class="mt-2"><input id="student-reg-confirm-password" name="confirm-password" type="password" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"></div></div>
+                         <div class="pt-2"><button type="submit" class="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"> Create Account </button></div>
+                     </form>
+                     <div class="mt-4 text-center text-sm"><p class="text-gray-600">Already have an account? <button onclick="showPage('login-page', 'Login')" class="font-medium text-indigo-600 hover:text-indigo-500"> Back to login </button></p></div>
+                 </div>
+             </div>
+        </div>
+
+        <!-- PAGE 3: RECRUITER REGISTER PAGE (Hidden) -->
+        <div id="recruiter-register-page" class="hidden flex min-h-full flex-col justify-center py-12 sm:px-6 lg:px-8 bg-slate-100">
+             <!-- ... (Structure remains the same) ... -->
+             <div class="sm:mx-auto sm:w-full sm:max-w-md">
+                 <svg class="mx-auto h-12 w-12 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A9.06 9.06 0 0 1 6 18.719m12 0c.212.01.423.015.633.015s.42-.005.633-.015m-12 0c.212.01.423.015.633.015s.42-.005.633-.015m0 0c-2.17 0-4.207-.576-5.963-1.584A9.06 9.06 0 0 1 6 18.719m0 0c.212.01.423.015.633.015s.42-.005.633-.015m6 0c.212.01.423.015.633.015s.42-.005.633-.015m-12 0c.212.01.423.015.633.015s.42-.005.633-.015M6 12a6 6 0 1 1 12 0 6 6 0 0 1-12 0Zm12 0a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z" /></svg>
+                 <h2 class="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">Create Recruiter Account</h2>
+             </div>
+             <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+                 <div class="bg-white px-4 py-8 shadow-lg sm:rounded-2xl sm:px-10">
+                     <!-- No separate message box needed -->
+                     <form id="recruiter-register-form" class="space-y-6">
+                         <div><label for="recruiter-reg-name" class="block text-sm font-medium leading-6 text-gray-900">Full Name</label><div class="mt-2"><input id="recruiter-reg-name" name="name" type="text" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-green-600 sm:text-sm sm:leading-6"></div></div>
+                         <div><label for="recruiter-reg-company" class="block text-sm font-medium leading-6 text-gray-900">Company Name</label><div class="mt-2"><input id="recruiter-reg-company" name="company" type="text" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-green-600 sm:text-sm sm:leading-6"></div></div>
+                         <div><label for="recruiter-reg-email" class="block text-sm font-medium leading-6 text-gray-900">Company Email</label><div class="mt-2"><input id="recruiter-reg-email" name="email" type="email" autocomplete="email" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-green-600 sm:text-sm sm:leading-6"></div></div>
+                         <div><label for="recruiter-reg-password" class="block text-sm font-medium leading-6 text-gray-900">Password</label><div class="mt-2"><input id="recruiter-reg-password" name="password" type="password" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-green-600 sm:text-sm sm:leading-6" minlength="6"><p class="mt-1 text-xs text-gray-500">Must be at least 6 characters.</p></div></div>
+                         <div><label for="recruiter-reg-confirm-password" class="block text-sm font-medium leading-6 text-gray-900">Confirm Password</label><div class="mt-2"><input id="recruiter-reg-confirm-password" name="confirm-password" type="password" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-green-600 sm:text-sm sm:leading-6"></div></div>
+                         <div class="pt-2"><button type="submit" class="flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"> Create Account </button></div>
+                     </form>
+                     <div class="mt-4 text-center text-sm"><p class="text-gray-600">Already have an account? <button onclick="showPage('login-page', 'Login')" class="font-medium text-green-600 hover:text-green-500"> Back to login </button></p></div>
+                 </div>
+             </div>
+        </div>
+
+        <!-- PAGE 4: STUDENT DASHBOARD (Hidden) -->
+        <div id="student-dashboard" class="hidden">
+             <!-- ... (Navbar remains the same) ... -->
+             <nav class="bg-indigo-600">
+                 <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                     <div class="flex h-16 items-center justify-between">
+                         <div class="flex items-center">
+                             <div class="flex-shrink-0"><svg class="h-8 w-8 text-indigo-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" /></svg></div>
+                             <div class="hidden md:block"><div class="ml-10 flex items-baseline space-x-4"><button onclick="showStudentTab('student-find')" class="student-tab bg-indigo-700 text-white rounded-md px-3 py-2 text-sm font-medium">Find Internships</button><button onclick="showStudentTab('student-applications')" class="student-tab text-indigo-300 hover:bg-indigo-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">My Applications</button><button onclick="showStudentTab('student-profile')" class="student-tab text-indigo-300 hover:bg-indigo-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">Profile</button></div></div>
+                         </div>
+                         <div class="flex items-center"><span id="student-welcome-name" class="text-indigo-300 text-sm mr-4">Welcome, Student!</span><button onclick="handleLogout()" class="rounded-md bg-indigo-700 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500"> Logout </button></div>
+                     </div>
+                 </div>
+             </nav>
+             <main class="py-10">
+                 <div class="dashboard-container">
+                     <!-- Tab: Find Internships -->
+                     <div id="student-find" class="student-tab-content">
+                         <h1 class="text-3xl font-bold tracking-tight text-gray-900 mb-6">Find New Internships</h1>
+
+                         <!-- Internship List Container -->
+                         <div id="student-job-list" class="space-y-4">
+                             <!-- Job cards will be dynamically inserted here -->
+                             <p class="text-gray-600">Loading available internships...</p>
+                         </div>
+                     </div>
+
+                     <!-- Tab: My Applications (History) -->
+                     <div id="student-applications" class="student-tab-content hidden">
+                         <h1 class="text-3xl font-bold tracking-tight text-gray-900 mb-6">My Application History</h1>
+                         <div class="bg-white p-6 rounded-2xl shadow-lg overflow-x-auto">
+                             <table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Match Score</th></tr></thead><tbody id="student-applications-list" class="bg-white divide-y divide-gray-200"><tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">Loading your applications...</td></tr></tbody></table>
+                         </div>
+                     </div>
+
+                      <!-- Tab: Profile -->
+                     <div id="student-profile" class="student-tab-content hidden">
+                         <h1 class="text-3xl font-bold tracking-tight text-gray-900 mb-6">My Profile</h1>
+                         <div class="bg-white p-8 rounded-2xl shadow-lg max-w-lg mx-auto">
+                            
+                            <form id="student-profile-form">
+                                <!-- Section 1: Text Resume for AI -->
+                                <h3 class="text-xl font-semibold mb-2">AI Resume Text</h3>
+                                <p class="text-gray-600 mb-4">
+                                    Paste your resume text below. 
+                                    <span classs="font-semibold text-indigo-600">Our AI will scan this text to find matches.</span>
+                                </p>
+                                <textarea id="student-resume-text" rows="15" class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" placeholder="Paste your full resume text here..."></textarea>
+
+                                <!-- Section 2: File Upload for Recruiters -->
+                                <h3 class="text-xl font-semibold mt-8 mb-2">Formatted Resume File</h3>
+                                <p class="text-gray-600 mb-4">
+                                    Upload a formatted resume (PDF, DOCX). 
+                                    <span class="font-semibold text-green-600">Recruiters will see this file.</span>
+                                    The AI scan will <span class="font-semibold text-red-600">not</span> read this file.
+                                </p>
+                                
+                                <input type="file" id="student-resume-file" class="block w-full text-sm text-slate-500
+                                  file:mr-4 file:py-2 file:px-4
+                                  file:rounded-full file:border-0
+                                  file:text-sm file:font-semibold
+                                  file:bg-indigo-50 file:text-indigo-700
+                                  hover:file:bg-indigo-100
+                                " accept=".pdf,.doc,.docx">
+                                
+                                <!-- NEW: Progress Bar -->
+                                <div id="upload-progress-container" class="w-full bg-gray-200 rounded-full h-2.5 mt-4 hidden">
+                                    <div id="upload-progress-bar" class="bg-indigo-600 h-2.5 rounded-full" style="width: 0%"></div>
+                                </div>
+                                
+                                <p class="mt-2 text-sm text-gray-500" id="current-file-name">
+                                    Current file: None
+                                </p>
+
+                                <!-- Save Button -->
+                                <button type="submit" id="save-profile-button" class="mt-8 flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
+                                    Save Profile
+                                 </button>
+                            </form>
+
+                         </div>
+                     </div>
+                 </div>
+             </main>
+        </div>
+        
+        <!-- PAGE 5: RECRUITER DASHBOARD (Hidden) -->
+        <div id="recruiter-dashboard" class="hidden">
+             <!-- ... (Navbar remains the same) ... -->
+             <nav class="bg-green-600">
+                 <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                     <div class="flex h-16 items-center justify-between">
+                         <div class="flex items-center">
+                             <div class="flex-shrink-0"><svg class="h-8 w-8 text-green-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A9.06 9.06 0 0 1 6 18.719m12 0c.212.01.423.015.633.015s.42-.005.633-.015m-12 0c.212.01.423.015.633.015s.42-.005.633-.015m0 0c-2.17 0-4.207-.576-5.963-1.584A9.06 9.06 0 0 1 6 18.719m0 0c.212.01.423.015.633.015s.42-.005.633-.015m6 0c.212.01.423.015.633.015s.42-.005.633-.015m-12 0c.212.01.423.015.633.015s.42-.005.633-.015M6 12a6 6 0 1 1 12 0 6 6 0 0 1-12 0Zm12 0a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z" /></svg></div>
+                             <div class="hidden md:block"><div class="ml-10 flex items-baseline space-x-4"><button onclick="showRecruiterTab('recruiter-applicants')" class="recruiter-tab bg-green-700 text-white rounded-md px-3 py-2 text-sm font-medium">View Applicants</button><button onclick="showRecruiterTab('recruiter-post')" class="recruiter-tab text-green-300 hover:bg-green-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">Post New Opportunity</button></div></div>
+                         </div>
+                         <div class="flex items-center"><span id="recruiter-welcome-name" class="text-green-300 text-sm mr-4">Welcome, Recruiter!</span><button onclick="handleLogout()" class="rounded-md bg-green-700 px-3 py-2 text-sm font-medium text-white hover:bg-green-500"> Logout </button></div>
+                     </div>
+                 </div>
+             </nav>
+             <main class="py-10">
+                 <div class="dashboard-container">
+                     <!-- Tab: View Applicants -->
+                     <div id="recruiter-applicants" class="recruiter-tab-content">
+                         <h1 class="text-3xl font-bold tracking-tight text-gray-900 mb-6">Your Posted Jobs & Applicants</h1>
+                         <div id="recruiter-job-list-with-applicants" class="space-y-6">
+                              <!-- Recruiter job cards + applicants will be rendered here -->
+                             <p class="text-gray-600">Loading your jobs and applicant lists...</p>
+                         </div>
+                     </div>
+                     <!-- Tab: Post New Opportunity -->
+                     <div id="recruiter-post" class="recruiter-tab-content hidden">
+                         <h1 class="text-3xl font-bold tracking-tight text-gray-900 mb-6">Post New Opportunity</h1>
+                         <div class="bg-white p-8 rounded-2xl shadow-lg max-w-2xl mx-auto">
+                             <form id="recruiter-post-form" class="space-y-6">
+                                <div><label for="job-title" class="block text-sm font-medium leading-6 text-gray-900">Job Title</label><div class="mt-2"><input type="text" id="job-title" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-green-600 sm:text-sm sm:leading-6"></div></div>
+                                <div><label for="job-specs" class="block text-sm font-medium leading-6 text-gray-900">Recruiter Specifications (Job Description)</label><div class="mt-2"><textarea id="job-specs" rows="6" required class="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-green-600 sm:text-sm sm:leading-6" placeholder="List key skills, experience, qualifications..."></textarea></div><p class="mt-2 text-xs text-gray-500">Be specific for better AI matching.</p></div>
+                                <div><label for="num-openings" class="block text-sm font-medium leading-6 text-gray-900">Number of Openings</label><div class="mt-2"><input type="number" id="num-openings" value="1" required class="block w-32 rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-green-600 sm:text-sm sm:leading-6"></div></div>
+                                <div class="pt-4"><button type="submit" class="flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"> Post Opportunity </button></div>
+                             </form>
+                         </div>
+                     </div>
+                 </div>
+             </main>
+        </div>
+
+        <!-- PAGE 6: ADMIN DASHBOARD (Hidden) -->
+        <div id="admin-dashboard" class="hidden">
+             <!-- ... (Navbar remains the same) ... -->
+             <nav class="bg-gray-800">
+                 <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                     <div class="flex h-16 items-center justify-between">
+                         <div class="flex items-center">
+                             <div class="flex-shrink-0"><svg class="h-8 w-8 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" /></svg></div>
+                             <div class="hidden md:block"><div class="ml-10 flex items-baseline space-x-4"><button onclick="showAdminTab('admin-applicants')" class="admin-tab bg-gray-900 text-white rounded-md px-3 py-2 text-sm font-medium">All Applicants</button><button onclick="showAdminTab('admin-opportunities')" class="admin-tab text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">All Opportunities</button><button onclick="showAdminTab('admin-recruiters')" class="admin-tab text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">All Recruiters</button></div></div>
+                         </div>
+                         <div class="flex items-center"><span id="admin-welcome-name" class="text-gray-400 text-sm mr-4">Welcome, Admin!</span><button onclick="handleLogout()" class="rounded-md bg-gray-700 px-3 py-2 text-sm font-medium text-white hover:bg-gray-600"> Logout </button></div>
+                     </div>
+                 </div>
+             </nav>
+             <main class="py-10">
+                 <div class="dashboard-container">
+                     <!-- Tab: All Applicants -->
+                     <div id="admin-applicants" class="admin-tab-content">
+                         <h1 class="text-3xl font-bold tracking-tight text-gray-900 mb-6">Manage All Applicants (Students)</h1>
+                         <div class="bg-white p-6 rounded-xl shadow-lg overflow-x-auto">
+                             <table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applications</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th></tr></thead><tbody id="admin-applicants-list" class="bg-white divide-y divide-gray-200"></tbody></table>
+                         </div>
+                     </div>
+                     <!-- Tab: All Opportunities -->
+                     <div id="admin-opportunities" class="admin-tab-content hidden">
+                         <h1 class="text-3xl font-bold tracking-tight text-gray-900 mb-6">Manage All Opportunities</h1>
+                         <div class="bg-white p-6 rounded-xl shadow-lg overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applicants</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recruiter</th></tr></thead><tbody id="admin-opportunities-list" class="bg-white divide-y divide-gray-200"></tbody></table>
+                         </div>
+                     </div>
+                     <!-- Tab: All Recruiters -->
+                     <div id="admin-recruiters" class="admin-tab-content hidden">
+                         <h1 class="text-3xl font-bold tracking-tight text-gray-900 mb-6">Manage All Recruitc̃ers</h1>
+                         <div class="bg-white p-6 rounded-xl shadow-lg overflow-x-auto">
+                             <table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Posted Jobs</th></tr></thead><tbody id="admin-recruiters-list" class="bg-white divide-y divide-gray-200"></tbody></table>
+                         </div>
+                     </div>
+                 </div>
+             </main>
+        </div>
+
+    </div>
+
+    <!-- 
+        =================================
+        JAVASCRIPT
+        =================================
+        All JavaScript is now in the app.js file.
+     -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>
